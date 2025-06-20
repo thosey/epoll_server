@@ -14,7 +14,7 @@ A high-performance echo server implemented in modern C++ using non-blocking sock
 ## Requirements
 
 - Linux or WSL (for `epoll` support)
-- C++17 or later
+- C++20 or later
 - CMake (optional, but recommended for builds)
 - OpenSSL (optional, for future TLS support)
 
