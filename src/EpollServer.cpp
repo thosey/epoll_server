@@ -4,9 +4,16 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <unordered_map>
+#include <string>
 
-EpollServer::EpollServer(int server_fd, int max_events)
-    : epoll_fd(epoll_create1(0)), server_fd(server_fd), events(max_events) {
+constexpr int PORT = 8080;
+
+EpollServer::EpollServer(int max_events)
+    : epoll_fd(epoll_create1(0)), //
+      server_fd(PORT),               //
+      events(max_events) {
+
     if (epoll_fd == -1) {
         throw std::runtime_error("epoll_create1() failed");
     }
@@ -22,11 +29,21 @@ void EpollServer::add(int client_fd) {
     }
 }
 
+void EpollServer::modify(int fd, uint32_t events) {
+    epoll_event event{};
+    event.events = events;
+    event.data.fd = fd;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) {
+        throw std::runtime_error("epoll_ctl() mod fd failed");
+    }
+}
+
 void EpollServer::remove(int fd) {
     if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr) == -1) {
         throw std::runtime_error("epoll_ctl() remove fd failed");
     }
     close(fd);
+    outBuffers.erase(fd); 
 }
 
 std::span<epoll_event> EpollServer::collectPendingEvents() {
@@ -62,8 +79,51 @@ void EpollServer::handleClientData(int fd) {
             remove(fd);
             break;
         } else {
-            send(fd, buffer, count, 0);
+            // If there's already unsent data, just buffer this new data
+            if (!outBuffers[fd].empty()) {
+                outBuffers[fd].append(buffer, count);
+                modify(fd, EPOLLIN | EPOLLOUT | EPOLLET);
+                continue;
+            }
+            // Try to send immediately
+            ssize_t sent = send(fd, buffer, count, 0);
+            if (sent == -1) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    sent = 0;
+                } else {
+                    remove(fd);
+                    break;
+                }
+            }
+            if (sent < count) {
+                // Buffer the rest
+                outBuffers[fd].append(buffer + sent, count - sent);
+                modify(fd, EPOLLIN | EPOLLOUT | EPOLLET);
+            }
         }
+    }
+}
+
+void EpollServer::handleClientWrite(int fd) {
+    auto &buf = outBuffers[fd];
+    while (!buf.empty()) {
+        ssize_t sent = send(fd, buf.data(), buf.size(), 0);
+        if (sent == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                break;
+            remove(fd);
+            return;
+        }
+        buf.erase(0, sent);
+        // If we sent less than the buffer, break to avoid busy waiting
+        // and allow other events to be processed. 
+        if (sent < static_cast<ssize_t>(buf.size()))
+            break;
+    }
+    if (buf.empty()) {
+        // No more data to write, disable EPOLLOUT
+        modify(fd, EPOLLIN | EPOLLET);
+        outBuffers.erase(fd);
     }
 }
 
@@ -75,7 +135,12 @@ void EpollServer::processEvents(Mode mode) {
                 acceptNewConnections();
                 continue;
             }
-            handleClientData(fd);
+            if (event.events & EPOLLOUT) {
+                handleClientWrite(fd);
+            }
+            if (event.events & EPOLLIN) {
+                handleClientData(fd);
+            }
         }
     } while (mode == Indefinitely);
 }
