@@ -6,17 +6,13 @@ A high-performance echo server implemented in modern C++ using non-blocking sock
 
 -  Efficient I/O with `epoll` (edge-triggered)
 -  Non-blocking sockets
--  RAII-style resource management
--  Clear modular structure
 -  Handles many concurrent clients
--  Easily extensible (e.g. TLS, timeouts, logging)
 
 ## Requirements
 
 - Linux or WSL (for `epoll` support)
 - C++20 or later
 - CMake (optional, but recommended for builds)
-- OpenSSL (optional, for future TLS support)
 
 ## Build & Run
 
