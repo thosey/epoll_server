@@ -9,10 +9,10 @@ add_compile_options(-Wall -Wextra -pedantic -O2)
 
 # Add the executable
 add_executable(echo_server
-    main.cpp
-    ListeningSocket.cpp
-    Epoll.cpp
-    SocketRAII.cpp
+    src/main.cpp
+    src/ListeningSocket.cpp
+    src/Epoll.cpp
+    src/SocketRAII.cpp
 )
 # Link against OpenSSL (optional, for future TLS support)
 find_package(OpenSSL QUIET)
