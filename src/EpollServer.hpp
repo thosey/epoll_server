@@ -6,7 +6,7 @@
 #include <sys/epoll.h>
 #include <vector>
 
-class Epoll {
+class EpollServer {
     SocketRAII epoll_fd;
     int server_fd;
     std::vector<epoll_event> events;
@@ -15,7 +15,7 @@ class Epoll {
   public:
     enum Mode { Once, Indefinitely };
 
-    explicit Epoll(int server_fd, int max_events = 1024);
+    explicit EpollServer(int server_fd, int max_events = 1024);
     void processEvents(Mode mode);
 
   private:

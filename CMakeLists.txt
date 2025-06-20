@@ -11,7 +11,7 @@ add_compile_options(-Wall -Wextra -pedantic -O2)
 add_executable(echo_server
     src/main.cpp
     src/ListeningSocket.cpp
-    src/Epoll.cpp
+    src/EpollServer.cpp
     src/SocketRAII.cpp
 )
 # Link against OpenSSL (optional, for future TLS support)

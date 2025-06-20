@@ -1,4 +1,4 @@
-#include "Epoll.hpp"
+#include "EpollServer.hpp"
 #include "ListeningSocket.hpp"
 #include <iostream>
 
@@ -7,8 +7,8 @@ constexpr int PORT = 8080;
 int main() {
     try {
         ListeningSocket server(PORT);
-        Epoll epoll{server};
-        epoll.processEvents(Epoll::Indefinitely);
+        EpollServer epoll{server};
+        epoll.processEvents(EpollServer::Indefinitely);
     } catch (const std::exception &ex) {
         std::cerr << "Fatal: " << ex.what() << "\n";
         return 1;

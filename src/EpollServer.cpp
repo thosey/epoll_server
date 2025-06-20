@@ -1,12 +1,11 @@
-// Epoll.cpp
-#include "Epoll.hpp"
+#include "EpollServer.hpp"
 #include <cstring>
 #include <errno.h>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
 
-Epoll::Epoll(int server_fd, int max_events)
+EpollServer::EpollServer(int server_fd, int max_events)
     : epoll_fd(epoll_create1(0)), server_fd(server_fd), events(max_events) {
     if (epoll_fd == -1) {
         throw std::runtime_error("epoll_create1() failed");
@@ -14,7 +13,7 @@ Epoll::Epoll(int server_fd, int max_events)
     add(server_fd);
 }
 
-void Epoll::add(int client_fd) {
+void EpollServer::add(int client_fd) {
     epoll_event event{};
     event.events = EPOLLIN | EPOLLET;
     event.data.fd = client_fd;
@@ -23,21 +22,21 @@ void Epoll::add(int client_fd) {
     }
 }
 
-void Epoll::remove(int fd) {
+void EpollServer::remove(int fd) {
     if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr) == -1) {
         throw std::runtime_error("epoll_ctl() remove fd failed");
     }
     close(fd);
 }
 
-std::span<epoll_event> Epoll::collectPendingEvents() {
+std::span<epoll_event> EpollServer::collectPendingEvents() {
     num_ready = epoll_wait(epoll_fd, events.data(), events.size(), -1);
     if (num_ready < 0)
         throw std::runtime_error("epoll_wait() failed");
     return std::span(events.data(), num_ready);
 }
 
-void Epoll::acceptNewConnections() {
+void EpollServer::acceptNewConnections() {
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd == -1) {
@@ -50,7 +49,7 @@ void Epoll::acceptNewConnections() {
     }
 }
 
-void Epoll::handleClientData(int fd) {
+void EpollServer::handleClientData(int fd) {
     char buffer[4096];
     while (true) {
         ssize_t count = recv(fd, buffer, sizeof(buffer), 0);
@@ -68,15 +67,15 @@ void Epoll::handleClientData(int fd) {
     }
 }
 
-void Epoll::processEvents(Mode mode) {
+void EpollServer::processEvents(Mode mode) {
     do {
         for (const auto &event : collectPendingEvents()) {
             int fd = event.data.fd;
             if (fd == server_fd) {
                 acceptNewConnections();
-            } else {
-                handleClientData(fd);
+                continue;
             }
+            handleClientData(fd);
         }
     } while (mode == Indefinitely);
 }
