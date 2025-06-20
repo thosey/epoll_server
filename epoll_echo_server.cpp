@@ -40,9 +40,6 @@ void set_non_blocking(int fd) {
         throw std::runtime_error("fcntl(F_SETFL) failed");
 }
 
-void accept_new_connections(int server_fd, Epoll& epoll);
-void handle_client_data(int fd, Epoll& epoll);
-
 } // anonymous namespace
 
 class SocketRAII {
@@ -113,19 +110,13 @@ class Epoll {
     int num_ready = 0;
 
 public:
+    enum Mode { Once, Indefinitely };
+
     explicit Epoll(int max_events = MAX_EVENTS)
         : epoll_fd(epoll_create1(0)), events(max_events) {
         if (epoll_fd == -1) throw std::runtime_error("epoll_create1() failed");
     }
 
-    /**
-     * @brief Registers a client socket file descriptor with epoll for read events.
-     *
-     * This method sets up edge-triggered monitoring (EPOLLET) for input (EPOLLIN) on the
-     * given client file descriptor so that epoll can notify when the socket becomes readable.
-     *
-     * @param client_fd A client socket file descriptor to be watched for input readiness.
-     */
     void add(int client_fd) {
         epoll_event event{};
         event.events = EPOLLIN | EPOLLET;
@@ -134,92 +125,69 @@ public:
             throw std::runtime_error("epoll_ctl() add fd failed");
     }
 
-    /**
-     * @brief Removes a file descriptor from being monitored by epoll.
-     *
-     * This should be called when a client disconnects or when you no longer
-     * wish to monitor the file descriptor for events.
-     *
-     * @param fd The file descriptor to remove from the epoll instance.
-     */
     void remove(int fd) {
         if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr) == -1)
             throw std::runtime_error("epoll_ctl() remove fd failed");
     }
 
-    /**
-     * @brief Waits for I/O events on registered file descriptors.
-     *
-     * This method blocks until one or more file descriptors are ready.
-     * It returns a span over the list of `epoll_event` structures that
-     * describe the ready file descriptors. These events can be iterated
-     * over using a range-based for loop:
-     *
-     * @code
-     * for (const auto& event : epoll.wait()) {
-     *     int fd = event.data.fd;
-     *     // Handle event on fd...
-     * }
-     * @endcode
-     *
-     * @return std::span<epoll_event> Span of ready events.
-     */
     auto wait() {
         num_ready = epoll_wait(epoll_fd, events.data(), events.size(), -1);
         if (num_ready < 0) throw std::runtime_error("epoll_wait() failed");
         return std::span(events.data(), num_ready);
     }
+
+    void accept_new_connections(int server_fd) {
+        while (true) {
+            int client_fd = accept(server_fd, nullptr, nullptr);
+            if (client_fd == -1) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                throw std::runtime_error("accept() failed");
+            }
+            set_non_blocking(client_fd);
+            add(client_fd);
+        }
+    }
+
+    void handle_client_data(int fd) {
+        char buffer[BUFFER_SIZE];
+        while (true) {
+            ssize_t count = recv(fd, buffer, sizeof(buffer), 0);
+            if (count == -1) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                remove(fd);
+                close(fd);
+                break;
+            } else if (count == 0) {
+                remove(fd);
+                close(fd);
+                break;
+            } else {
+                send(fd, buffer, count, 0);
+            }
+        }
+    }
+
+    void process_events(int server_fd, Mode mode) {
+        do {
+            for (const auto& event : wait()) {
+                int fd = event.data.fd;
+                if (fd == server_fd) {
+                    accept_new_connections(server_fd);
+                } else {
+                    handle_client_data(fd);
+                }
+            }
+        } while (mode == Indefinitely);
+    }
 };
 
 namespace {
-
-void accept_new_connections(int server_fd, Epoll& epoll) {
-    while (true) {
-        int client_fd = accept(server_fd, nullptr, nullptr);
-        if (client_fd == -1) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) break;
-            throw std::runtime_error("accept() failed");
-        }
-
-        set_non_blocking(client_fd);
-        epoll.add(client_fd);
-    }
-}
-
-void handle_client_data(int fd, Epoll& epoll) {
-    char buffer[BUFFER_SIZE];
-    while (true) {
-        ssize_t count = recv(fd, buffer, sizeof(buffer), 0);
-        if (count == -1) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) break;
-            epoll.remove(fd);
-            close(fd);
-            break;
-        } else if (count == 0) {
-            epoll.remove(fd);
-            close(fd);
-            break;
-        } else {
-            send(fd, buffer, count, 0);
-        }
-    }
-}
 
 void run_echo_server() {
     ListeningSocket server(PORT);
     Epoll epoll;
     epoll.add(server);
-
-    while (true) {
-        for (const auto& event : epoll.wait()) {
-            int fd = event.data.fd;
-            if (fd == server) {
-                accept_new_connections(server, epoll);
-            } else {
-                handle_client_data(fd, epoll);
-            }
-        }
-    }
+    epoll.process_events(server, Epoll::Indefinitely);
 }
 
 } // anonymous namespace
