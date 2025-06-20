@@ -1,6 +1,6 @@
 # 🖧 Epoll-Based C++ Echo Server
 
-A high-performance echo server implemented in modern C++ using non-blocking sockets and the Linux `epoll` API. Designed to be educational, efficient, and extendable — perfect for learning systems-level networking or as a foundation for real-world network services.
+A high-performance echo server.
 
 ## Features
 
