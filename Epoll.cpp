@@ -30,7 +30,7 @@ std::span<epoll_event> Epoll::wait() {
     return std::span(events.data(), num_ready);
 }
 
-void Epoll::accept_new_connections(int server_fd) {
+void Epoll::acceptNewConnections(int server_fd) {
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd == -1) {
@@ -42,7 +42,7 @@ void Epoll::accept_new_connections(int server_fd) {
     }
 }
 
-void Epoll::handle_client_data(int fd) {
+void Epoll::handleClientData(int fd) {
     char buffer[4096];
     while (true) {
         ssize_t count = recv(fd, buffer, sizeof(buffer), 0);
@@ -61,14 +61,14 @@ void Epoll::handle_client_data(int fd) {
     }
 }
 
-void Epoll::process_events(int server_fd, Mode mode) {
+void Epoll::processEvents(int server_fd, Mode mode) {
     do {
         for (const auto& event : wait()) {
             int fd = event.data.fd;
             if (fd == server_fd) {
-                accept_new_connections(server_fd);
+                acceptNewConnections(server_fd);
             } else {
-                handle_client_data(fd);
+                handleClientData(fd);
             }
         }
     } while (mode == Indefinitely);

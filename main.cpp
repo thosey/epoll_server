@@ -9,7 +9,7 @@ int main() {
         ListeningSocket server(PORT);
         Epoll epoll;
         epoll.add(server);
-        epoll.process_events(server, Epoll::Indefinitely);
+        epoll.processEvents(server, Epoll::Indefinitely);
     } catch (const std::exception& ex) {
         std::cerr << "Fatal: " << ex.what() << "\n";
         return 1;

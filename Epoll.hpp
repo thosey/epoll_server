@@ -18,7 +18,7 @@ public:
     void add(int client_fd);
     void remove(int fd);
     std::span<epoll_event> wait();
-    void accept_new_connections(int server_fd);
-    void handle_client_data(int fd);
-    void process_events(int server_fd, Mode mode);
+    void acceptNewConnections(int server_fd);
+    void handleClientData(int fd);
+    void processEvents(int server_fd, Mode mode);
 };
