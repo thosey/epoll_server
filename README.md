@@ -25,8 +25,3 @@ cmake ..
 make
 ./echo_server
 
-### Using g++ directly
-
-```bash
-g++ -std=c++17 -Wall -Wextra -O2 epoll_echo_server.cpp -o echo_server
-./echo_server
