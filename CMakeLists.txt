@@ -8,8 +8,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall -Wextra -pedantic -O2)
 
 # Add the executable
-add_executable(echo_server epoll_echo_server.cpp)
-
+add_executable(echo_server
+    main.cpp
+    ListeningSocket.cpp
+    Epoll.cpp
+    SocketRAII.cpp
+)
 # Link against OpenSSL (optional, for future TLS support)
 find_package(OpenSSL QUIET)
 if (OPENSSL_FOUND)
