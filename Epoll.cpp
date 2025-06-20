@@ -15,13 +15,16 @@ void Epoll::add(int client_fd) {
     epoll_event event{};
     event.events = EPOLLIN | EPOLLET;
     event.data.fd = client_fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1){
         throw std::runtime_error("epoll_ctl() add fd failed");
+    }
 }
 
 void Epoll::remove(int fd) {
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr) == -1)
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr) == -1){
         throw std::runtime_error("epoll_ctl() remove fd failed");
+    }
+    close(fd);
 }
 
 std::span<epoll_event> Epoll::wait() {
@@ -49,11 +52,9 @@ void Epoll::handleClientData(int fd) {
         if (count == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) break;
             remove(fd);
-            close(fd);
             break;
         } else if (count == 0) {
             remove(fd);
-            close(fd);
             break;
         } else {
             send(fd, buffer, count, 0);
