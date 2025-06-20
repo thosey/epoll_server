@@ -24,7 +24,7 @@ class EpollServer {
   private:
     void acceptNewConnections();
     void handleClientData(int fd);
-    void handleClientWrite(int fd); 
+    void finishClientWrite(int fd); 
     void add(int client_fd);
     void modify(int fd, uint32_t events); 
     void remove(int fd);

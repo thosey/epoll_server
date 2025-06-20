@@ -104,7 +104,7 @@ void EpollServer::handleClientData(int fd) {
     }
 }
 
-void EpollServer::handleClientWrite(int fd) {
+void EpollServer::finishClientWrite(int fd) {
     auto &buf = outBuffers[fd];
     while (!buf.empty()) {
         ssize_t sent = send(fd, buf.data(), buf.size(), 0);
@@ -136,7 +136,7 @@ void EpollServer::processEvents(Mode mode) {
                 continue;
             }
             if (event.events & EPOLLOUT) {
-                handleClientWrite(fd);
+                finishClientWrite(fd);
             }
             if (event.events & EPOLLIN) {
                 handleClientData(fd);

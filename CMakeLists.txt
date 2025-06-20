@@ -21,3 +21,12 @@ if (OPENSSL_FOUND)
     target_include_directories(echo_server PRIVATE ${OPENSSL_INCLUDE_DIR})
     target_link_libraries(echo_server PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 endif()
+
+add_executable(EpollServerTest
+    tests/main.cpp
+    tests/EpollServerTest.cpp
+    src/EpollServer.cpp
+    src/ListeningSocket.cpp
+    src/SocketRAII.cpp
+)
+target_link_libraries(EpollServerTest gtest pthread)
